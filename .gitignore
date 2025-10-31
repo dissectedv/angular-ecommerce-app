@@ -1,2 +1,110 @@
-/backend/node_modules
-/backend/env
+# ==============================
+# 🌐 GERAL
+# ==============================
+.DS_Store
+Thumbs.db
+*.log
+*.tmp
+*.swp
+*.swo
+*.bak
+*.lock
+*.pid
+.env
+.env.*
+node_modules/
+dist/
+build/
+coverage/
+.cache/
+.vscode/
+.idea/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ==============================
+# ⚙️ ANGULAR (client/)
+# ==============================
+client/.angular/
+client/.angular/cache/
+client/node_modules/
+client/dist/
+client/tmp/
+client/out-tsc/
+client/.sass-cache/
+client/.eslintcache
+client/coverage/
+client/src/environments/environment.ts
+client/src/environments/environment.prod.ts
+
+# ==============================
+# 💻 NODE.JS (backend/)
+# ==============================
+backend/node_modules/
+backend/dist/
+backend/logs/
+backend/debug.log
+backend/npm-debug.log*
+backend/yarn-debug.log*
+backend/yarn-error.log*
+backend/.env
+backend/.env.*
+
+# ==============================
+# 🐳 DOCKER
+# ==============================
+*.tar
+*.img
+*.pid
+*.seed
+Dockerfile~
+docker-compose.override.yml
+docker-compose.debug.yml
+docker-compose*.local.yml
+
+# ==============================
+# ☸️ KUBERNETES / CI-CD
+# ==============================
+k3s.log
+*.kubeconfig
+.kube/
+.k8s/
+k8s/*.secret.yaml
+k8s/*.backup.yaml
+k8s/tmp/
+.github/workflows/*.bak
+.github/workflows/*.tmp
+
+# ==============================
+# 📦 DEPLOY / OUTPUT
+# ==============================
+*.pem
+*.key
+*.crt
+*.pub
+*.sql
+*.dump
+*.tar.gz
+*.zip
+*.7z
+*.bak
+*.tgz
+
+# ==============================
+# 🧪 TESTES
+# ==============================
+*.spec.ts
+*.test.js
+*.test.ts
+junit.xml
+coverage-final.json
+
+# ==============================
+# 🔐 SSH / AWS / PRIVATE
+# ==============================
+*.pem
+*.ppk
+*.key
+aws_config/
+aws_credentials/

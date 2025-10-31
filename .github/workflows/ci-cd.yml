@@ -1,93 +1,72 @@
-name: CI/CD – Build, Push & Rollout (Docker Hub + SSH)
+name: 🚀 Deploy e Verificação no Kubernetes (via EC2)
 
 on:
   push:
-    branches: [ "master" ]
-  workflow_dispatch:
-
-env:
-  REGISTRY: docker.io
-  NAMESPACE: app-demo
-
-  FRONT_DEPLOYMENT: frontend
-  FRONT_CONTAINER: app
-  BACK_DEPLOYMENT: backend
-  BACK_CONTAINER: app
+    branches: [ "main" ]
 
 jobs:
-  build-and-push:
-    name: Build & Push (frontend + backend)
+  deploy:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
+
+    env:
+      NAMESPACE: app-demo
+      BACKEND_IMAGE: ${{ secrets.REGISTRY_USERNAME }}/backend
+      FRONTEND_IMAGE: ${{ secrets.REGISTRY_USERNAME }}/frontend
+      EC2_IP: ${{ secrets.EC2_HOST }}
+      EC2_USER: ${{ secrets.EC2_USER }}
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      # 1️⃣ Checkout do código
+      - name: 🧩 Baixar código
+        uses: actions/checkout@v3
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+      # 2️⃣ Configurar acesso SSH à instância EC2
+      - name: 🔑 Configurar chave SSH
+        run: |
+          echo "${{ secrets.EC2_SSH_KEY }}" > ec2_key.pem
+          chmod 600 ec2_key.pem
+          ssh-keyscan -H $EC2_IP >> ~/.ssh/known_hosts
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Login to Docker Hub
+      # 3️⃣ Login no Docker Hub
+      - name: 🐳 Login no Docker Hub
         uses: docker/login-action@v3
         with:
-          registry: ${{ env.REGISTRY }}
           username: ${{ secrets.REGISTRY_USERNAME }}
           password: ${{ secrets.REGISTRY_PASSWORD }}
 
-      # ---------- FRONTEND ----------
-      - name: Build & Push Frontend
-        uses: docker/build-push-action@v6
-        with:
-          context: ./client
-          file: ./client/Dockerfile
-          push: true
-          tags: docker.io/pedrobrantis/frontend:latest
-          cache-from: type=gha,scope=frontend
-          cache-to: type=gha,mode=max,scope=frontend
-
-      # ---------- BACKEND ----------
-      - name: Build & Push Backend
+      # 4️⃣ Build e Push das Imagens
+      - name: 🏗️ Build e Push Backend
         uses: docker/build-push-action@v6
         with:
           context: ./backend
-          file: ./backend/Dockerfile
           push: true
-          tags: docker.io/pedrobrantis/backend:latest
-          cache-from: type=gha,scope=backend
-          cache-to: type=gha,mode=max,scope=backend
+          tags: ${{ env.BACKEND_IMAGE }}:latest,${{ env.BACKEND_IMAGE }}:${{ github.sha }}
 
-  deploy:
-    name: Rollout via SSH on EC2
-    needs: build-and-push
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Add EC2 host key
-        run: |
-          mkdir -p ~/.ssh
-          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
-
-      - name: Rollout with SSH
-        uses: appleboy/ssh-action@v1.2.0
+      - name: 🏗️ Build e Push Frontend
+        uses: docker/build-push-action@v6
         with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}  # ex.: ubuntu
-          key: ${{ secrets.EC2_SSH_KEY }}
-          port: 22
-          script_stop: true
-          script: |
-            set -euo pipefail
-            export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
-            alias kubectl='sudo KUBECONFIG=/etc/rancher/k3s/k3s.yaml kubectl'
+          context: ./client
+          push: true
+          tags: ${{ env.FRONTEND_IMAGE }}:latest,${{ env.FRONTEND_IMAGE }}:${{ github.sha }}
 
-            echo ">> Atualizando FRONTEND"
-            kubectl -n ${NAMESPACE} set image deployment/${FRONT_DEPLOYMENT} ${FRONT_CONTAINER}=docker.io/pedrobrantis/frontend:latest --record
-            kubectl -n ${NAMESPACE} rollout status deployment/${FRONT_DEPLOYMENT} --timeout=300s
+      # 5️⃣ Fazer deploy no cluster dentro da EC2
+      - name: ☸️ Aplicar Manifests no K3s remoto
+        run: |
+          ssh -i ec2_key.pem $EC2_USER@$EC2_IP << 'EOF'
+            cd ~/k8s
+            echo "📦 Atualizando imagens..."
+            kubectl set image deployment/backend pedrobrantis/backend=${{ env.BACKEND_IMAGE }}:latest -n app-demo
+            kubectl set image deployment/frontend web=${{ env.FRONTEND_IMAGE }}:latest -n app-demo
+            kubectl rollout restart deployment/backend -n app-demo
+            kubectl rollout restart deployment/frontend -n app-demo
+            kubectl get pods -n app-demo
+          EOF
 
-            echo ">> Atualizando BACKEND"
-            kubectl -n ${NAMESPACE} set image deployment/${BACK_DEPLOYMENT} ${BACK_CONTAINER}=docker.io/pedrobrantis/backend:latest --record
-            kubectl -n ${NAMESPACE} rollout status deployment/${BACK_DEPLOYMENT} --timeout=300s
+      # 6️⃣ Verificar funcionamento
+      - name: ✅ Testar endpoints públicos
+        run: |
+          echo "🌐 Testando backend..."
+          curl -s -o /dev/null -w "%{http_code}\n" http://${{ env.EC2_IP }}:30045/api/v1/products?limit=3
+          echo "🌐 Testando frontend..."
+          curl -s -o /dev/null -w "%{http_code}\n" http://${{ env.EC2_IP }}:30050
+          echo "🚀 Deploy finalizado com sucesso!"
