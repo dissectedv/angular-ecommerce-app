@@ -1,5 +1,5 @@
 name: Deploy e Verificação no Kubernetes via EC2
-
+#
 on:
   push:
     branches: [ "main" ]
