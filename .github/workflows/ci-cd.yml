@@ -1,4 +1,4 @@
-name: Deploy and Verify Kubernetes via EC2
+name: Deploy e Verificação no Kubernetes via EC2
 
 on:
   push:
@@ -16,37 +16,37 @@ jobs:
       EC2_USER: ${{ secrets.EC2_USER }}
 
     steps:
-      - name: Checkout code
+      - name: Baixar código
         uses: actions/checkout@v3
 
-      - name: Configure SSH key
+      - name: Decodificar e configurar chave SSH
         run: |
-          echo "${{ secrets.EC2_SSH_KEY }}" | sed 's/\\n/\n/g' | tr -d '\r' > ec2_key.pem
+          echo "${{ secrets.EC2_SSH_KEY_B64 }}" | base64 --decode > ec2_key.pem
           chmod 600 ec2_key.pem
           mkdir -p ~/.ssh
           ssh-keyscan -H $EC2_IP >> ~/.ssh/known_hosts
 
-      - name: Docker Hub login
+      - name: Login no Docker Hub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.REGISTRY_USERNAME }}
           password: ${{ secrets.REGISTRY_PASSWORD }}
 
-      - name: Build and push backend image
+      - name: Build e push da imagem do Backend
         uses: docker/build-push-action@v6
         with:
           context: ./backend
           push: true
           tags: ${{ env.BACKEND_IMAGE }}:latest,${{ env.BACKEND_IMAGE }}:${{ github.sha }}
 
-      - name: Build and push frontend image
+      - name: Build e push da imagem do Frontend
         uses: docker/build-push-action@v6
         with:
           context: ./client
           push: true
           tags: ${{ env.FRONTEND_IMAGE }}:latest,${{ env.FRONTEND_IMAGE }}:${{ github.sha }}
 
-      - name: Apply manifests on remote K3s
+      - name: Aplicar manifests no K3s remoto
         run: |
           ssh -o StrictHostKeyChecking=no -i ec2_key.pem $EC2_USER@$EC2_IP << 'EOF'
             cd ~/k8s
@@ -57,10 +57,10 @@ jobs:
             kubectl get pods -n app-demo
           EOF
 
-      - name: Test public endpoints
+      - name: Testar endpoints públicos
         run: |
-          echo "Testing backend..."
+          echo "Testando backend..."
           curl -s -o /dev/null -w "%{http_code}\n" http://${{ env.EC2_IP }}:30045/api/v1/products?limit=3
-          echo "Testing frontend..."
+          echo "Testando frontend..."
           curl -s -o /dev/null -w "%{http_code}\n" http://${{ env.EC2_IP }}:30050
-          echo "Deployment completed successfully."
+          echo "Deploy finalizado com sucesso."
