@@ -23,21 +23,23 @@ jobs:
           username: ${{ secrets.REGISTRY_USERNAME }}
           password: ${{ secrets.REGISTRY_PASSWORD }}
 
-      - name: Build and push backend image (no cache)
+      - name: Build and push backend image (full rebuild)
         uses: docker/build-push-action@v6
         with:
           context: ./backend
           push: true
+          pull: true
           no-cache: true
           tags: |
             ${{ env.BACKEND_IMAGE }}:latest
             ${{ env.BACKEND_IMAGE }}:${{ github.sha }}
 
-      - name: Build and push frontend image (no cache)
+      - name: Build and push frontend image (full rebuild)
         uses: docker/build-push-action@v6
         with:
           context: ./client
           push: true
+          pull: true
           no-cache: true
           tags: |
             ${{ env.FRONTEND_IMAGE }}:latest
