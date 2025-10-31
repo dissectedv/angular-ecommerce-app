@@ -21,7 +21,7 @@ jobs:
 
       - name: Configure SSH key
         run: |
-          echo "${{ secrets.EC2_SSH_KEY }}" > ec2_key.pem
+          echo "${{ secrets.EC2_SSH_KEY }}" | tr -d '\r' > ec2_key.pem
           chmod 600 ec2_key.pem
           mkdir -p ~/.ssh
           ssh-keyscan -H $EC2_IP >> ~/.ssh/known_hosts
@@ -48,7 +48,7 @@ jobs:
 
       - name: Apply manifests on remote K3s
         run: |
-          ssh -i ec2_key.pem $EC2_USER@$EC2_IP << 'EOF'
+          ssh -o StrictHostKeyChecking=no -i ec2_key.pem $EC2_USER@$EC2_IP << 'EOF'
             cd ~/k8s
             kubectl set image deployment/backend pedrobrantis/backend=${{ env.BACKEND_IMAGE }}:latest -n app-demo
             kubectl set image deployment/frontend web=${{ env.FRONTEND_IMAGE }}:latest -n app-demo
