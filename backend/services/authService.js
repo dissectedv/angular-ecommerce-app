@@ -24,6 +24,7 @@ exports.loginUser = async (params) => {
             message: "Something went wrong, please try again",
             statusCode: 400,
           });
+          return;
         }
 
         if (result.length === 0) {
@@ -31,16 +32,15 @@ exports.loginUser = async (params) => {
             message: "Wrong credentials, please try again",
             statusCode: 400,
           });
+          return;
         }
 
-        if (result.length > 0) {
-          const token = jwt.sign({ data: result }, "secret");
-          resolve({
-            message: "Logged in successfully",
-            data: result,
-            token,
-          });
-        }
+        const token = jwt.sign({ data: result }, "secret");
+        resolve({
+          message: "Logged in successfully",
+          data: result,
+          token,
+        });
       }
     );
   });
@@ -53,40 +53,52 @@ exports.registerUser = async (params) => {
   const { fullName, email, password } = params;
   const hashedPassword = md5(password.toString());
 
+  // cria automaticamente o username com base no email
+  const username = email.split("@")[0];
+
   return new Promise((resolve, reject) => {
-    db.query(
-      `SELECT email FROM users WHERE email = ?`,
-      [email],
-      (err, result) => {
-        if (result.length > 0) {
-          reject({
-            message: "Email address is in use, please try a different one",
-            statusCode: 400,
-          });
-        } else if (result.length === 0) {
-          db.query(
-            `INSERT INTO users (fname, email, password) VALUES (?,?,?)`,
-            [fullName, email, hashedPassword],
-            (err, result) => {
-              if (err) {
-                reject({
-                  message: "Something went wrong, please try again",
-                  statusCode: 400,
-                  data: err,
-                });
-              } else {
-                const token = jwt.sign({ data: result }, "secret");
-                resolve({
-                  data: result,
-                  message: "You have successfully registered.",
-                  token: token,
-                  statusCode: 200,
-                });
-              }
-            }
-          );
-        }
+    // verificar se o email já existe
+    db.query(`SELECT email FROM users WHERE email = ?`, [email], (err, result) => {
+      if (err) {
+        reject({
+          message: "Something went wrong, please try again",
+          statusCode: 400,
+          data: err,
+        });
+        return;
       }
-    );
+
+      if (result.length > 0) {
+        reject({
+          message: "Email address is in use, please try a different one",
+          statusCode: 400,
+        });
+        return;
+      }
+
+      // inserir novo usuário (username agora obrigatório)
+      db.query(
+        `INSERT INTO users (username, fname, email, password) VALUES (?,?,?,?)`,
+        [username, fullName, email, hashedPassword],
+        (err, result) => {
+          if (err) {
+            reject({
+              message: "Something went wrong, please try again",
+              statusCode: 400,
+              data: err,
+            });
+            return;
+          }
+
+          const token = jwt.sign({ data: result }, "secret");
+          resolve({
+            data: result,
+            message: "You have successfully registered.",
+            token: token,
+            statusCode: 200,
+          });
+        }
+      );
+    });
   });
 };
