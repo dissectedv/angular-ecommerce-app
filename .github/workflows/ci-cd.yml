@@ -10,8 +10,8 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      BACKEND_IMAGE: ${{ secrets.REGISTRY_USERNAME }}/backend
-      FRONTEND_IMAGE: ${{ secrets.REGISTRY_USERNAME }}/frontend
+      BACKEND_IMAGE: vitordissected/backend
+      FRONTEND_IMAGE: vitordissected/frontend
 
     steps:
       - name: Checkout repository
@@ -48,8 +48,8 @@ jobs:
 
     env:
       NAMESPACE: app-demo
-      BACKEND_IMAGE: ${{ secrets.REGISTRY_USERNAME }}/backend
-      FRONTEND_IMAGE: ${{ secrets.REGISTRY_USERNAME }}/frontend
+      BACKEND_IMAGE: vitordissected/backend
+      FRONTEND_IMAGE: vitordissected/frontend
       EC2_IP: ${{ secrets.EC2_HOST }}
       EC2_USER: ${{ secrets.EC2_USER }}
 
@@ -61,22 +61,27 @@ jobs:
           mkdir -p ~/.ssh
           ssh-keyscan -H $EC2_IP >> ~/.ssh/known_hosts
 
-      - name: Apply Kubernetes manifests on remote EC2
+      - name: Apply Kubernetes updates on EC2
         run: |
-          ssh -o StrictHostKeyChecking=no -i ec2_key.pem $EC2_USER@$EC2_IP << 'EOF'
-            mkdir -p ~/k8s
-            cd ~/k8s
-            kubectl set image deployment/backend pedrobrantis/backend=${{ env.BACKEND_IMAGE }}:latest -n app-demo
+          ssh -o StrictHostKeyChecking=no -i ec2_key.pem $EC2_USER@$EC2_IP << EOF
+            echo "Updating images in the cluster..."
+            kubectl set image deployment/backend backend=${{ env.BACKEND_IMAGE }}:latest -n app-demo
             kubectl set image deployment/frontend web=${{ env.FRONTEND_IMAGE }}:latest -n app-demo
+
+            echo "Restarting pods..."
             kubectl rollout restart deployment/backend -n app-demo
             kubectl rollout restart deployment/frontend -n app-demo
-            kubectl get pods -n app-demo
+
+            echo "Checking running pods..."
+            kubectl get pods -n app-demo -o wide
           EOF
 
-      - name: Verify public endpoints
+      - name: Verify endpoints
         run: |
           echo "Testing backend API..."
           curl -s -o /dev/null -w "%{http_code}\n" http://${{ env.EC2_IP }}:30045/api/v1/products?limit=3
+
           echo "Testing frontend app..."
           curl -s -o /dev/null -w "%{http_code}\n" http://${{ env.EC2_IP }}:30050
-          echo "✅ Deployment completed successfully."
+
+          echo "Deployment completed successfully."
