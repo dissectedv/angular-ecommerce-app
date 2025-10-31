@@ -66,26 +66,10 @@ jobs:
           ssh -o StrictHostKeyChecking=no -i ec2_key.pem $EC2_USER@$EC2_IP << 'EOF'
             mkdir -p ~/k8s
             cd ~/k8s
-
-            echo "🔄 Updating backend and frontend images..."
-            kubectl set image deployment/backend app=${{ env.BACKEND_IMAGE }}:latest -n app-demo
+            kubectl set image deployment/backend pedrobrantis/backend=${{ env.BACKEND_IMAGE }}:latest -n app-demo
             kubectl set image deployment/frontend web=${{ env.FRONTEND_IMAGE }}:latest -n app-demo
-
-            echo "♻️ Restarting deployments..."
             kubectl rollout restart deployment/backend -n app-demo
             kubectl rollout restart deployment/frontend -n app-demo
-
-            echo "🧹 Cleaning old MySQL jobs..."
-            kubectl delete job -n app-demo --all || true
-
-            echo "📥 Reapplying MySQL import job..."
-            if [ -f "50-job-mysql-import.yaml" ]; then
-              kubectl apply -f 50-job-mysql-import.yaml -n app-demo
-            else
-              echo "⚠️ Skipped: 50-job-mysql-import.yaml not found."
-            fi
-
-            echo "✅ Checking pod status..."
             kubectl get pods -n app-demo
           EOF
 
