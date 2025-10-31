@@ -1,4 +1,4 @@
-name: 🚀 Deploy e Verificação no Kubernetes (via EC2)
+name: Deploy and Verify Kubernetes via EC2
 
 on:
   push:
@@ -16,45 +16,40 @@ jobs:
       EC2_USER: ${{ secrets.EC2_USER }}
 
     steps:
-      # 1️⃣ Checkout do código
-      - name: 🧩 Baixar código
+      - name: Checkout code
         uses: actions/checkout@v3
 
-      # 2️⃣ Configurar acesso SSH à instância EC2
-      - name: 🔑 Configurar chave SSH
+      - name: Configure SSH key
         run: |
           echo "${{ secrets.EC2_SSH_KEY }}" > ec2_key.pem
           chmod 600 ec2_key.pem
+          mkdir -p ~/.ssh
           ssh-keyscan -H $EC2_IP >> ~/.ssh/known_hosts
 
-      # 3️⃣ Login no Docker Hub
-      - name: 🐳 Login no Docker Hub
+      - name: Docker Hub login
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.REGISTRY_USERNAME }}
           password: ${{ secrets.REGISTRY_PASSWORD }}
 
-      # 4️⃣ Build e Push das Imagens
-      - name: 🏗️ Build e Push Backend
+      - name: Build and push backend image
         uses: docker/build-push-action@v6
         with:
           context: ./backend
           push: true
           tags: ${{ env.BACKEND_IMAGE }}:latest,${{ env.BACKEND_IMAGE }}:${{ github.sha }}
 
-      - name: 🏗️ Build e Push Frontend
+      - name: Build and push frontend image
         uses: docker/build-push-action@v6
         with:
           context: ./client
           push: true
           tags: ${{ env.FRONTEND_IMAGE }}:latest,${{ env.FRONTEND_IMAGE }}:${{ github.sha }}
 
-      # 5️⃣ Fazer deploy no cluster dentro da EC2
-      - name: ☸️ Aplicar Manifests no K3s remoto
+      - name: Apply manifests on remote K3s
         run: |
           ssh -i ec2_key.pem $EC2_USER@$EC2_IP << 'EOF'
             cd ~/k8s
-            echo "📦 Atualizando imagens..."
             kubectl set image deployment/backend pedrobrantis/backend=${{ env.BACKEND_IMAGE }}:latest -n app-demo
             kubectl set image deployment/frontend web=${{ env.FRONTEND_IMAGE }}:latest -n app-demo
             kubectl rollout restart deployment/backend -n app-demo
@@ -62,11 +57,10 @@ jobs:
             kubectl get pods -n app-demo
           EOF
 
-      # 6️⃣ Verificar funcionamento
-      - name: ✅ Testar endpoints públicos
+      - name: Test public endpoints
         run: |
-          echo "🌐 Testando backend..."
+          echo "Testing backend..."
           curl -s -o /dev/null -w "%{http_code}\n" http://${{ env.EC2_IP }}:30045/api/v1/products?limit=3
-          echo "🌐 Testando frontend..."
+          echo "Testing frontend..."
           curl -s -o /dev/null -w "%{http_code}\n" http://${{ env.EC2_IP }}:30050
-          echo "🚀 Deploy finalizado com sucesso!"
+          echo "Deployment completed successfully."
