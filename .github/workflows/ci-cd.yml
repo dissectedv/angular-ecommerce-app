@@ -65,8 +65,8 @@ jobs:
         run: |
           ssh -o StrictHostKeyChecking=no -i ec2_key.pem $EC2_USER@$EC2_IP << EOF
             echo "Updating images in the cluster..."
-            kubectl set image deployment/backend app=${{ env.BACKEND_IMAGE }}:latest -n app-demo
-            kubectl set image deployment/frontend web=${{ env.FRONTEND_IMAGE }}:latest -n app-demo
+            kubectl set image deployment/backend app=${{ env.BACKEND_IMAGE }}:${{ github.sha }} -n app-demo
+            kubectl set image deployment/frontend web=${{ env.FRONTEND_IMAGE }}:${{ github.sha }} -n app-demo
 
             echo "Restarting pods..."
             kubectl rollout restart deployment/backend -n app-demo
